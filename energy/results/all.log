@@ -1,0 +1,50 @@
+[start] conv1 23:41:56
+[done] conv1   Utilization = 0.58 | pJ/Compute =    3.238
+[start] fc 23:42:17
+[done] fc   Utilization = 0.60 | pJ/Compute =   67.991
+[start] r2_a 23:42:36
+[done] r2_a   Utilization = 0.67 | pJ/Compute =    4.192
+[start] r2_a1 23:42:58
+[done] r2_a1   Utilization = 0.38 | pJ/Compute =    4.640
+[start] r2_b 23:43:19
+[done] r2_b   Utilization = 0.50 | pJ/Compute =    2.987
+[start] r2_c 23:43:42
+[done] r2_c   Utilization = 0.67 | pJ/Compute =    4.096
+[start] r2_ds 23:44:03
+[done] r2_ds   Utilization = 0.67 | pJ/Compute =    4.096
+[start] r3_a 23:44:25
+[done] r3_a   Utilization = 0.67 | pJ/Compute =    3.875
+[start] r3_a1 23:44:46
+[done] r3_a1   Utilization = 0.67 | pJ/Compute =    3.835
+[skip] r3_b
+[start] r3_b1 23:45:07
+[done] r3_b1   Utilization = 1.00 | pJ/Compute =    3.229
+[start] r3_c 23:45:28
+[done] r3_c   Utilization = 0.67 | pJ/Compute =    3.739
+[start] r3_ds 23:45:49
+[done] r3_ds   Utilization = 0.67 | pJ/Compute =    4.010
+[start] r4_a 23:46:11
+[done] r4_a   Utilization = 0.33 | pJ/Compute =    3.658
+[start] r4_a1 23:46:33
+[done] r4_a1   Utilization = 0.67 | pJ/Compute =    3.560
+[start] r4_b 23:46:54
+[done] r4_b   Utilization = 1.00 | pJ/Compute =    3.088
+[start] r4_b1 23:47:15
+[done] r4_b1   Utilization = 1.00 | pJ/Compute =    3.244
+[start] r4_c 23:47:37
+[done] r4_c   Utilization = 0.67 | pJ/Compute =    3.721
+[start] r4_ds 23:47:57
+[done] r4_ds   Utilization = 0.67 | pJ/Compute =    3.835
+[start] r5_a 23:48:20
+[done] r5_a   Utilization = 0.67 | pJ/Compute =    4.415
+[start] r5_a1 23:48:40
+[done] r5_a1   Utilization = 0.67 | pJ/Compute =    3.415
+[start] r5_b 23:49:00
+[done] r5_b   Utilization = 1.00 | pJ/Compute =    4.155
+[start] r5_b1 23:49:22
+[done] r5_b1   Utilization = 1.00 | pJ/Compute =    4.262
+[start] r5_c 23:49:44
+[done] r5_c   Utilization = 0.67 | pJ/Compute =    4.347
+[start] r5_ds 23:50:05
+[done] r5_ds   Utilization = 0.33 | pJ/Compute =    4.480
+ALL_DONE

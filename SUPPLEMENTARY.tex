@@ -1,0 +1,145 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs,array,hyperref,xcolor,listings,enumitem,fancyhdr}
+\hypersetup{colorlinks=true,urlcolor=blue,linkcolor=black}
+\definecolor{codebg}{gray}{0.96}
+\lstset{basicstyle=\ttfamily\small,backgroundcolor=\color{codebg},breaklines=true,frame=single,framerule=0pt,xleftmargin=6pt,xrightmargin=6pt,aboveskip=6pt,belowskip=6pt,columns=fullflexible,keepspaces=true}
+\pagestyle{fancy}\fancyhf{}\rhead{LEAN: Supplementary Material}\lhead{Anonymous Submission}\cfoot{\thepage}
+\newcommand{\lean}{\textsf{\textbf{LEAN}}}
+
+\title{\textbf{\lean: Loss-Engineered Modulation of the Weight-Sensitivity Distribution}\\[4pt]
+\large Supplementary Material: Code, Hardware and Reproduction Manual}
+\author{Anonymous Submission}
+\date{}
+
+\begin{document}
+\maketitle\thispagestyle{fancy}
+
+\begin{center}
+\fbox{\parbox{0.92\linewidth}{\centering
+\textbf{Anonymous code repository (artifact):}\\[2pt]
+\url{https://anonymous.4open.science/r/LEAN}\\[4pt]
+Hosted via Anonymous GitHub: \url{https://anonymous.4open.science}}}
+\end{center}
+\vspace{6pt}
+
+This document goes with the anonymized code for \lean. It explains what the code does, how the repository is organized, which script produced each table and figure in the paper, and how to run the three parts yourself: the training objective and the attacks on vision models, the language-model experiments, and the hardware loader with its RTL simulation, ASIC synthesis and FPGA implementation. We tried to keep every experiment one command away; where a run takes hours, the script writes a log that can be followed while it runs.
+
+\tableofcontents
+
+\section{Overview}
+\lean\ is a loss term. The damage a bit flip does to a stored weight is the product of the weight's gradient and the step the flip takes in the storage format, and \lean\ regularizes both: a range term bounds the flip step of every layer, and a tail term, the mean sensitivity of the top 1\% of weights differentiated through the gradient, lowers the gradient where it is largest. One coefficient $\lambda$ sets how far the sensitive tail moves. The term is added to the loss of an ordinary ten-epoch fine-tune or of the last epochs of training; the architecture, the quantizer and the inference hardware are unchanged.
+
+Everything lives in one flat \texttt{code/} directory so that the scripts can import each other without packaging: the objective for CNNs and for language models, the sensitivity measurement, the real-flip check, the four attacks (progressive bit search, T-BFA, AttentionBreaker, SilentStriker), the selective code with the real BCH codec and the key-aware attacker, the sensitivity-ordered 8/6/4/3-bit storage format and the NVFP4 mode, the five published training-time defenses and the two quantization baselines reproduced under the paper's protocol, and the shell scripts we actually ran for every table. \texttt{hw/} holds the weight loader and all hardware flows, \texttt{energy/} the Timeloop and Accelergy inputs.
+
+\section{Repository layout}
+\begin{lstlisting}
+code/     Python and shell scripts (run everything from inside code/)
+hw/       loader RTL, testbenches, Design Compiler, Vivado FPGA and Zynq SoC flows
+energy/   Timeloop + Accelergy architecture, constraints, workloads, run_all.sh
+README.md, requirements.txt, LICENSE (MIT)
+\end{lstlisting}
+
+\subsection{Environment}
+\begin{lstlisting}
+conda create -n lean python=3.10 && conda activate lean
+pip install -r requirements.txt
+\end{lstlisting}
+CUDA GPUs are assumed: 24 GB is enough for all vision experiments and the 0.5B to 1.5B language models; the 7B and 8B models run in bfloat16 on one 48 GB GPU per attack. CIFAR-10/100 are downloaded by torchvision. ImageNet experiments use the 50k validation set split into 40k fine-tune and 10k held-out images (the paper states every ImageNet accuracy on that held-out set), expected at \texttt{./imagenet-val}. Language models are loaded from the Hugging Face hub. Clean checkpoints live under \texttt{artifacts/models/<dataset>/<arch>/model\_float32.pth}; CIFAR baselines are trained with \texttt{gen\_models.py}, ImageNet baselines are the torchvision weights.
+
+\section{Core scripts}
+\begin{description}[leftmargin=1.5em,itemsep=2pt]
+\item[\texttt{lean\_sensreg.py}] the \lean\ objective for CNNs. Sub-commands: \texttt{train} (fine-tune with \texttt{--reg tail|clip|both|none}, \texttt{--lam}, \texttt{--tail-frac}, \texttt{--tail-every}, \texttt{--clip-q}, \texttt{--clip-w}), \texttt{hist} (HIGH/MID/LOW shares against the baseline's thresholds), \texttt{plot}, \texttt{ptq}, \texttt{flip} (real sign-bit flips, targeted or random), \texttt{knob} (the $\lambda$ sweep), \texttt{figure}.
+\item[\texttt{lean\_sensreg\_llm.py}, \texttt{lean\_llm\_train\_fd3.py}, \texttt{lean\_llm\_train\_big.py}, \texttt{lean\_llm\_train\_pcstep.py}] the same objective on the linear layers of language models (WikiText-2, one epoch); the finite-difference form of the tail term for 1.5B and larger models; the per-channel-step variant.
+\item[\texttt{lean\_pcstep.py}, \texttt{lean\_train\_pcstep\_cnn.py}, \texttt{lean\_hist\_pc.py}, \texttt{lean\_truedamage\_pc.py}] per-channel INT8 step for the tail term, the per-channel sensitivity measurement and real-flip damage.
+\item[\texttt{lean\_truedamage.py}, \texttt{lean\_train\_gradnorm.py}] the real-flip check of Table 2 and the plain gradient-norm penalty.
+\item[\texttt{pbs\_four.py}] progressive bit search on the INT8 model under no code, random code and the selective code (\texttt{--protect none|uniform|selcode}, \texttt{--covs}, \texttt{--flips}); \texttt{lean\_pbs\_codec.py} runs the real BCH codec in the loop and the key-aware attacker; \texttt{lean\_pbs\_codec\_pc.py}, \texttt{\_dw.py}, \texttt{\_clamp.py} are the per-channel, depthwise-coded and activation-clamp variants.
+\item[\texttt{lean\_tbfa.py}, \texttt{lean\_tbfa\_all.py}] the targeted attack on held-out data.
+\item[\texttt{lean\_train\_hessian.py}, \texttt{lean\_train\_pc\_wcat.py}, \texttt{lean\_train\_far.py}, \texttt{lean\_train\_lsq.py}] Hessian-aware training, Piece-wise Clustering, WCAT, Forget-and-Rewire, LSQ and KURE, same data, epochs and initialization as \lean.
+\item[\texttt{lean\_train\_inset.py}, \texttt{\_inset2.py}, \texttt{\_inset3.py}] \lean\ switched on in the last ten epochs of a 200-epoch run (Appendix C).
+\item[\texttt{lean\_train\_qat\_group5.py}, \texttt{lean\_train\_qat\_mp9.py}, \texttt{lean\_eval\_mp.py}] the sensitivity-ordered 8/6/4/3-bit format with per-block (hardware) and per-weight tiers, budgeted to a target bits-per-weight, and its evaluation in the trained format; \texttt{lean\_stdm\_parity.py} the parity hidden in the LOW tier.
+\item[\texttt{lean\_nvfp4.py}, \texttt{lean\_train\_qat\_nvfp4*.py}, \texttt{lean\_pbs\_nvfp4*.py}] the NVFP4 mode (Appendix G).
+\item[\texttt{lean\_archs.py}] MobileNet-V2, EfficientNet-B0, ViT-B/16, Swin-T (Appendix H).
+\item[\texttt{attnbreaker\_core.py}, \texttt{lean\_llm\_attnbreaker\_w.py}, \texttt{lean\_llm\_showcase.py}, \texttt{lean\_llm\_showcase\_codesel.py}] AttentionBreaker (GenBFA) re-implemented on the INT8 weights with a weight-level code; \texttt{\_codesel} adds the choice of code placement (\texttt{--code-score gradw|attacker}). \texttt{lean\_llm\_bf16.py} runs any of these scripts with the model in bfloat16.
+\item[\texttt{lean\_llm\_silentstriker\_w.py}] SilentStriker on the same models and code.
+\item[\texttt{lean\_llm\_harness.py}, \texttt{lean\_llm\_tasks.py}, \texttt{lean\_llm\_ppl\_owt.py}] six-task accuracy, MMLU, OpenWebText perplexity; \texttt{lean\_llm\_flipcheck.py} applies a saved flip list to any model and reports each flip's coverage under both placements.
+\item[\texttt{lean\_overhead.py}] per-epoch runtime and memory of the objective against a plain fine-tune.
+\end{description}
+
+\section{Paper table and figure map}
+\begin{center}\small
+\begin{tabular}{p{0.34\linewidth}p{0.6\linewidth}}
+\toprule
+paper & scripts in \texttt{code/} \\
+\midrule
+Table 1, Figure 3, Appendix B & \texttt{run\_sensreg\_all\_models.sh}, \texttt{run\_all\_sensreg.sh} \\
+Table 2 & \texttt{run\_lean\_ablation.sh}, \texttt{run\_lean\_ablation2.sh}, \texttt{lean\_truedamage.py}, \texttt{lean\_train\_gradnorm.py} \\
+Appendix D (per-channel ablation) & \texttt{run\_c4\_cifar\_pc.sh}, \texttt{run\_c4\_imnet\_train.sh}, \texttt{run\_c4\_imnet\_pbs.sh}, \texttt{run\_c4\_imnet\_pcstep.sh} \\
+Table 4 & \texttt{run\_lean\_e3\_pbsfour.sh}, \texttt{plot\_compare\_hessian.py} \\
+Table 5 & \texttt{run\_lean\_e3\_seeds.sh} \\
+Table 6, Appendix E & \texttt{run\_lean\_tbfa*.sh}, \texttt{run\_fill\_part2\_tbfa.sh} \\
+Table 7, Appendix F & \texttt{run\_lean\_codec.sh}, \texttt{run\_fill\_part1\_codec.sh}, \texttt{run\_c5\_codeaware.sh} \\
+Table 8, Figure 4, Appendix G & \texttt{run\_lean\_group5.sh}, \texttt{run\_lean\_mp9.sh}, \texttt{run\_lean\_nvfp4*.sh}, \texttt{run\_trunc\_sweep.sh} \\
+Table 9, Appendix L & \texttt{hw/} (Section~\ref{sec:hw}) \\
+Table 10, Appendix J & \texttt{run\_sensreg\_llm.sh}, \texttt{run\_lean\_llm\_full*.sh}, \texttt{run\_lean\_attnbreaker\_w*.sh}, \texttt{run\_lean\_silentstriker*.sh}, \texttt{run\_lean\_qwen7b\_*.sh}, \texttt{run\_qwen7b\_*.sh}, \texttt{run\_llama8b\_*.sh}, \texttt{run\_lean\_owt.sh} \\
+Appendix C & \texttt{run\_lean\_inset*.sh} \\
+Appendix H & \texttt{run\_lean\_archs*.sh} \\
+Appendix I & \texttt{energy/run\_all.sh}, \texttt{energy/lean\_energy.py} \\
+Appendix K & \texttt{run\_lean\_e6\_logit.sh}, \texttt{run\_lean\_e7\_band.sh}, \texttt{run\_lean\_e8\_flipaware.sh}, \texttt{run\_lean\_archs\_dw*.sh}, \texttt{run\_lean\_archs\_clamp\_all.sh} \\
+\bottomrule
+\end{tabular}
+\end{center}
+Every \texttt{run\_*.sh} starts with a comment saying what it reproduces, what arguments it takes (usually just the GPU index) and where it writes its log. Several of the longer ones were run in pieces over days, which is why some tables are covered by more than one script.
+
+\section{One model end to end}
+\begin{lstlisting}
+cd code
+# LEAN fine-tune from the clean checkpoint, ResNet-18 CIFAR-10, lambda = 40
+python lean_sensreg.py train --dataset cifar10 --arch resnet18 \
+   --init artifacts/models/cifar10/resnet18/model_float32.pth --reg both --lam 40 --epochs 10 \
+   --out artifacts/models/cifar10/resnet18/model_float32_sensreg_lam40.pth
+# sensitivity distribution against the baseline's HIGH/MID thresholds
+python lean_sensreg.py hist --dataset cifar10 --arch resnet18 \
+   --ckpt artifacts/models/cifar10/resnet18/model_float32.pth \
+   --ckpt2 artifacts/models/cifar10/resnet18/model_float32_sensreg_lam40.pth \
+   --out sensreg_results/cifar10_resnet18/hist_lam40
+# progressive bit search, selective 1% code, 100 to 500 flips
+python pbs_four.py --dataset CIFAR10 --arch resnet18 --bits 8 --protect selcode \
+   --covs 0.01 --flips 100,200,300,500 --label lam40
+\end{lstlisting}
+
+\section{Language models}
+\begin{lstlisting}
+cd code
+bash run_sensreg_llm.sh 0                    # Qwen2-0.5B: control and LEAN fine-tunes, HIGH/MID, INT4
+bash run_lean_llm_full.sh 0                  # AttentionBreaker and six tasks, 0.5% code
+bash run_lean_silentstriker_rank.sh 0        # SilentStriker, code by sign-flip damage, loss/logit split
+bash run_lean_qwen7b_train.sh                # Qwen2.5-7B LEAN fine-tune (finite-difference tail term)
+bash run_qwen7b_codesel_attack.sh 0          # Qwen2.5-7B per-channel, code by the attacker's ranking
+bash run_llama8b_attsel_attack.sh 0 lam10_sum   # Llama-3.1-8B, one checkpoint per GPU
+bash run_llama8b_s1.sh 1 lam10_sum gradw     # second attacker seed
+bash run_lean_owt.sh 2                       # OpenWebText perplexity of the clean models
+\end{lstlisting}
+The attacks load the fine-tuned checkpoints from \texttt{ckpt\_llm/<model>/<run>/}; the 7B and 8B models go through \texttt{lean\_llm\_bf16.py}.
+
+\section{Hardware}\label{sec:hw}
+\texttt{hw/README.md} documents the loader in full. The flows, each a single command:
+\begin{lstlisting}
+cd hw
+python lean_pack.py --ckpt <model.pth> --bins <model.bins.pt> --tiers 8,6,4,3 --block 32 --out vec_lean
+python lean_hw_agent.py --ckpt <model.pth> --tiers 8,6,4,3 --block 32   # VCS simulation + DC synthesis
+bash run_power_saif.sh <tag>          # simulation-driven power (SAIF)
+bash fpga/run_fpga.sh                 # Vivado: INT8 read-out, loader, loader + checker
+bash fpga/run_xsim.sh                 # post-route gate-level simulation, PASS/FAIL
+bash fpga/run_fpga_accel.sh           # loader next to the 8x8 systolic accelerator
+bash fpga/run_cycles.sh               # throughput and latency, cycle-accurate
+bash fpga_soc/run_soc.sh              # Zynq UltraScale+ block design, AXI-Lite IP
+\end{lstlisting}
+The RTL (\texttt{rtl/lean\_weight\_loader.v}, \texttt{rtl/lean\_unpack.v}) is bit-exact against the Python packer on every weight of ResNet-50; the testbench \texttt{tb/tb\_lean\_loader.v} also injects random bit flips into the packed image and reports which flips land in protected blocks and are flagged. Design Compiler targets a 45 nm library at 100 MHz; Vivado targets the ZCU102 (xczu9eg) and a Versal VM1802.
+
+\section{Energy model}
+\texttt{energy/} holds the Timeloop architecture (\texttt{arch\_int8.yaml}), the row-stationary constraints, the mapper settings, the Accelergy component library and the per-layer workloads; \texttt{run\_all.sh} runs every ResNet-50 layer at INT8 and in the tiered format and \texttt{lean\_energy.py} sums the energy per inference and per activation reported in Appendix I.
+
+\section{Notes}
+Random seeds are fixed in every script through \texttt{--seed}, and the paper says which entries are single runs. Checkpoints and datasets are not included because of their size; every checkpoint used in the paper is produced by the scripts above from the public baselines, and the fine-tunes are short (ten epochs for vision, one epoch for language models), so regenerating them is cheaper than hosting them. If something does not run as described, the header comment of the script is the first place to look; the second is the log it writes.
+\end{document}

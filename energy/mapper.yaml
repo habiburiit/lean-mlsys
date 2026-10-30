@@ -1,0 +1,9 @@
+mapper:
+  algorithm: random-pruned
+  optimization-metrics: [energy, delay]
+  live-status: False
+  num-threads: 4
+  timeout: 3000
+  victory-condition: 300
+  search-size: 0
+  log-stats: False

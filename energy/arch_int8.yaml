@@ -1,0 +1,70 @@
+architecture:
+  version: 0.3
+  subtree:
+    - name: system
+      attributes:
+        technology: "45nm"
+      local:
+        - name: DRAM
+          class: DRAM
+          attributes:
+            type: "LPDDR4"
+            width: 64
+            word-bits: 8
+            block-size: 8
+      subtree:
+        - name: eyeriss
+          local:
+            - name: GlobalBuffer
+              class: SRAM
+              attributes:
+                depth: 16384
+                width: 64
+                word-bits: 8
+                block-size: 8
+                n_banks: 32
+                read_bandwidth: 16
+                write_bandwidth: 16
+            - name: DummyBuffer[0..13]
+              class: regfile
+              attributes:
+                depth: 1
+                width: 8
+                word-bits: 8
+                meshX: 14
+          subtree:
+            - name: PE[0..167]
+              local:
+                - name: InputRegFile
+                  class: regfile
+                  attributes:
+                    depth: 12
+                    width: 8
+                    word-bits: 8
+                    meshX: 14
+                    read_bandwidth: 2
+                    write_bandwidth: 2
+                - name: WeightRegFile
+                  class: regfile
+                  attributes:
+                    depth: 192
+                    width: 8
+                    word-bits: 8
+                    meshX: 14
+                    read_bandwidth: 2
+                    write_bandwidth: 2
+                - name: PsumRegFile
+                  class: regfile
+                  attributes:
+                    depth: 16
+                    width: 16
+                    word-bits: 16
+                    meshX: 14
+                    read_bandwidth: 2
+                    write_bandwidth: 2
+                - name: MACs
+                  class: intmac
+                  attributes:
+                    meshX: 14
+                    datawidth: 8
+                    width: 8

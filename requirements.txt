@@ -1,0 +1,12 @@
+torch>=2.1
+torchvision>=0.16
+numpy
+scipy
+matplotlib
+tqdm
+timm
+transformers>=4.40
+datasets
+accelerate
+sentencepiece
+pyyaml

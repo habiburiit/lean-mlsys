@@ -1,0 +1,31 @@
+{
+ "total_int8": 14864360000.0,
+ "macs": 4089184256,
+ "agg": {
+  "MACs/compute": 3455360696.3199997,
+  "PsumRegFile/Outputs": 576623830.66,
+  "WeightRegFile/Weights": 6189707757.470001,
+  "InputRegFile/Inputs": 229894521.37000003,
+  "GlobalBuffer/Inputs": 634889109.13,
+  "GlobalBuffer/Outputs": 460797253.89000005,
+  "DRAM/Weights": 1800241152.0,
+  "DRAM/Inputs": 805477888.0,
+  "DRAM/Outputs": 711358976.0
+ },
+ "lean": {
+  "3.5": {
+   "dram_w": 787605504.0,
+   "unpack": 57560832.0,
+   "total": 13909285184.0,
+   "dram_saving": 0.5625,
+   "total_saving": 0.0642526698761332
+  },
+  "4.0": {
+   "dram_w": 900120576.0,
+   "unpack": 57560832.0,
+   "total": 14021800256.0,
+   "dram_saving": 0.5,
+   "total_saving": 0.05668321703726231
+  }
+ }
+}
