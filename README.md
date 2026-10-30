@@ -1,4 +1,4 @@
-# LEAN: LEAN: Shaping the Weight-Sensitivity Distribution of Neural Networks for Enhanced Storage Efficiency and Error-Tolerance
+# LEAN: Shaping the Weight-Sensitivity Distribution of Neural Networks for Enhanced Storage Efficiency and Error-Tolerance
 
 Anonymous code release for the MLSys submission. Everything needed to reproduce the
 paper's experiments is here: the LEAN training objective for vision models and
